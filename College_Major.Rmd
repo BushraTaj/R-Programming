@@ -1,0 +1,25 @@
+---
+title: "college_major"
+output:
+  html_document: default
+  pdf_document: default
+date: "2023-07-03"
+---
+
+```{r echo=TRUE}
+library(devtools)
+devtools::install_github("jhudsl/collegeIncome")
+devtools::install_github("jhudsl/matahari")
+library(collegeIncome)
+library(matahari)
+library(datasets)
+
+#dance_start(value = FALSE, contents = FALSE)
+data("college")
+str(college)
+head(college)
+fit <-lm(p75th ~ factor(major_category), data= college)
+summary(fit)
+#dance_save("~/Desktop/college_major_analysis.rds")
+```
+
