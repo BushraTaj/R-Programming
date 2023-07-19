@@ -1,0 +1,285 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+title: "Using more LaTeX packages"
+output: 
+  pdf_document:
+    extra_dependencies: ["bbm", "threeparttable"]
+    
+output: 
+  pdf_document:
+    extra_dependencies:
+      caption: ["labelfont={bf}"]
+      hyperref: ["unicode=true", "breaklinks=true"]
+      lmodern: null
+      
+\usepackage[labelfont={bf}]{caption} 
+\usepackage[unicode=true, breaklinks=true]{hyperref}
+\usepackage{lmodern}
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<title> Optimizing Linear Models of MTCARS dataset<title>
+
+```{r echo=TRUE} 
+library(datasets)
+data("mtcars")
+```
+Check the internal structure of dataset
+
+```{r echo=TRUE}
+dim(mtcars)
+str(mtcars)
+head(mtcars)
+tail(mtcars)
+names(mtcars)
+```
+Check if there is any missing values in any variable in dataset
+
+```{r echo=TRUE}
+sum(is.na(mtcars))
+sapply(mtcars, function(x) sum(is.na(x)))
+```
+Check the descriptive statistics for each variable
+
+```{r echo=TRUE}
+quality_data <- function(df=NULL){
+  if(is.null(df)) print("Please pass a non-empty data frame")
+  summary_table <- do.call(data.frame,
+                           list(
+                             Min = sapply(df, function(x) min(x, na.rm = TRUE)),
+                             Max = sapply(df, function(x) max(x, na.rm = TRUE)),
+                             Mean = sapply(df, function(x) mean(x, na.rm = TRUE)),
+                             SD = sapply(df, function(x) sd(x, na.rm = TRUE)),
+                             Total = apply(df, 2, length),
+                             NULLS = sapply(df, function(x) sum(is.na (x))),
+                             Unique = sapply(df, function(x) length(unique(x))),
+                             dataType = sapply(df, class)
+                           ))
+  nums <- vapply(summary_table, is.numeric, FUN.VALUE = logical(1))
+  summary_table[, nums] <- round(summary_table[, nums], digits = 3)
+  return(summary_table)
+}
+mtcars_quality <- quality_data(mtcars)
+mtcars_quality <- cbind(columns = rownames(mtcars_quality), 
+                    data.frame(mtcars_quality, row.names = NULL))
+View(mtcars_quality)
+```
+
+This followed by some Exploratory data analysis
+
+```{r  echo=TRUE}
+library(e1071)
+library(ggplot2)
+library(graphics)
+library(lattice)
+require(stats)
+library(dplyr)
+
+mtcars_ds <- mutate(mtcars, Transmission_Type = factor(am, levels = c(0,1),
+            labels = c("Automatic", "Manual")))
+mtcars_ds
+names(mtcars_ds)
+plot(mtcars$mpg)
+
+```
+
+Study the models to check the effect
+
+```{r echo=TRUE}
+library(tidyverse)
+library(ggpubr)
+library(broom)
+library(ggfortify)
+model_1 <- lm(mpg ~ Transmission_Type, data = mtcars_ds)
+summary(model_1)
+
+plot(mtcars_ds$Transmission_Type, mtcars_ds$mpg, col = "green", main= "Variation in MPG with Transmission Type", xlab="Types of Transmission", ylab= "MPG")
+
+
+confint(model_1)
+
+par(mfrow=c(2,2))
+autoplot(model_1)
+
+```
+
+1-Analyzing the Coefficients 
+While analyzing the results the linear model shows 
+MPG = 17.147 + 7.245 * Transmission_Type, where 0 for automatic and 1 for manual Transmission_Type. Manual transmission found to be 7.245 MPG better than its automatic counterpart.
+
+2-Analyzing the P-values
+Both P-values are <0.05, as per null hypothesis the coefficients are equal to zero (which implies that they have no effect on depandant variable). These small P-values confidently reject the null hypothesis and signifies the coefficients statistically. 
+
+3-Confidence Interval
+analyzing the confidence interval make us 95% confident that the intercept and transmission type coeffecients does fall within the interval.
+
+4- R-Square Interpretation
+The R-squared value is 0.3598, this means 36% of the observed value variation around the regression line can be explained by the model. R-squared gives an idea of the goodness-of-fit of the model. It measures how close the predicted values are to the fitted regression line.
+
+5- Residual Plots & Diagnostics
+Residual plots help us to test our linear regression model. Analyzing our linear regression model:
+a-Homoscedasticity the observations were found constant around the regression line.
+b-For a given value of X, the Y values(or the errors) are normally distributed.
+
+The top left "Residual vs Fitted" plot tells whether linearity assumptions is met and whether the variation of observations around the regression line is constant for all values of X. The straight red line in the plot suggests the first assumption is validated, i.e. the Y-values can be expressed as a linear function of X. With that being said, this does not mean much considering that our explanatory variable is a categorical variable consisting of only 2 factors or groups.
+Let’s now test our data for homoscedasticity. A quick glance at our ‘Residuals vs. Fitted’ and ‘Scale-Location’ (bottom-left) plots suggest that the variation of observations around the regression line is not constant for all values of X. Hence, this violates one of our key assumptions for linear regression. We can correct that by performing a multivariate linear regression instead.
+
+Lastly, the ‘Normal Q-Q’ plot gives us an visual idea whether our errors are normally distributed. It plots the quantiles of the standardized residuals versus the theoretical quantiles. A quick visual inspection of the plot shows the data points fitting nicely around the 45-degree diagonal line, which means that our assumption of errors being normally distributed is validated.
+
+MODEL 2:
+Now proceed to second model where incorporate other variables into our regression model.
+Check another model using weight also as one of the predictor factor.
+
+
+```{r echo=TRUE}
+
+model_2 <- lm(mpg ~ Transmission_Type + wt , data = mtcars_ds)
+summary(model_2)
+
+g2 <- ggplot(mtcars_ds, aes(wt, mpg))
+g2 <- g2 + geom_point(aes(color = Transmission_Type), alpha = 0.75, size = 5) + 
+  labs(title = "Response of MPG to Vehicle Weight & Transmission Type") +
+  labs(x = "Vehicle Weight", y = "Efficiency (MPG)")
+
+g2 <- g2 + geom_abline(intercept = coef(model_2)[1] + coef(model_2)[2] * 0, slope = coef(model_2)[3], size = 2, col = "brown")
+
+g2 <- g2 + geom_abline(intercept = coef(model_2)[1] + coef(model_2)[2] * 1, slope = coef(model_2)[3], size = 1, col = "yellow")
+
+g2
+```
+1- ANALYZE COEFFCIENTS PLOT
+As per analyzing the model 2, the linear model is represented as:MPG = 37.32-0.024AM - 5.352wt, where AM takes the value of 0 (automatic) or 1 (manual).In this model weight is included, as a result the effect of transmission type on MPG is attenuated. The effect of transmission type on MPG is sharply decreased so that AM coefficient changes sign and value from 7.245 in the first model to -0.024 in the second model. This implies that, while holding weight constant, automatic vehicles have a higher MPG rate compared to manual cars. Both transmission type vehicles are 5.352 MPG less efficient for every 1000lb increase in weight. 
+
+2-ANALYZING COEFFICIENTS P-VALUE:
+Analyzing the p-values for all 3 coefficients (intercept, AM, weight). For the intercept and weight coefficients, both have very small p-values (<0.05). As a result, the null hypothesis is rejected, which says our coefficients are equal to zero. Our analysis says our coefficients are statistically significant. Which states that changes in the predictor values are related to changes in the response variable. However, p-value for AM coefficient is bigger than 0.05 (0.988). As a result, we fail to reject the null hypothesis, which states that AM independent variable has little to no effect on MPG. This provides a strong evidence that we can omit the AM variable in the model.
+
+3-COEFFICIENTS UNCERTAINITY:
+95% confidence interval is also calculated:
+```{r echo=TRUE}
+  
+confint(model_2)
+
+par(mfrow=c(2,2))
+autoplot(model_2)
+
+```
+All three coefficients found within the intervals as per 95% CI.
+
+4-  ANALYZING R-SQUARED:
+The adjusted R-squared is 0.7358, which means 74% of the variation around the regression line can be explained by the model.
+
+5-RESIDUAL PLOTS AND DIAGNOSTICS:
+Further test our assumptions for linear regression using residual plots.
+The top-left "Residuals vs. Fitted" plot tells us whether our linearity assumption is met and whether the variation of observations around the regression line is constant for all values of X. The red line in the plot has a strong curvature, suggesting a non-linear relationship between the dependent and independent variables. Thus, our first assumption of linearity is violated.
+
+In reference to homoscedasticity, plot shows that at small and large fitted values, residuals have only positive values; in the middle (15-25 MPG) range, however, residuals are at both positive and negative values. This suggests the variation of observation is not constant for all values of X, which would violate our linear regression assumption of homoscedasticity.
+
+Lastly, in regards to our assumption of observed values or residuals being normally distributed, the ‘Normal Q-Q’ plot shows the residual points lining up nicely along the diagonal line. Hence, we can conclude that our errors are normally distributed.
+
+ANOVA/F-statistic
+Using the ANOVA method, we can compare different linear models to determine which model is ‘better’ and decide which variable to keep or leave out.
+
+
+Now the two models will be analyzed statistically
+
+```{r echo=TRUE}
+anova(model_1, model_2)
+```
+Following first linear model plots transmission type and MPG, whereas the second model plots MPG versus transmission type and weight. According to our ANOVA output, the first model has a RSS (residual sum squared) of 720.90 compared to 278.32 for the second model. The null hypothesis states that the RSS between the first and second model is not statistically significantly different, i.e. the models do not significantly differ. The alternate hypothesis states that there is a statistically significant difference between both RSS’s, and as a result the models do differ significantly in that the ‘full’ model (the ‘bigger’ model with more parameters) is significantly better than the ‘reduced’ model. Since the p-value is extremely small (1.867e-07) and less than 0.05, we can say with 95% confidence that model 2 is significantly better than model 1, and that the weight term should definitely be included in the model.
+
+
+Model 3 will further use interaction of weight with Transmission types
+in this model, weight and transmission will be plotted taking their interaction into consideration. Interaction refers to the effect of weight and transmission type on MPG are not independent of each other which means that the effect of weight on MPG depends on the value of transmission type, and vice-versa.
+```{r echo=TRUE}
+model_3 <- lm(mpg ~ Transmission_Type * wt, mtcars_ds)
+summary(model_3)
+```
+
+1- ANALYZING THE COEFFICIENTS PLOT:
+While analyzing the linear model results, it was found as MPG = 31.416 + 14.878AM - 5.298AM*wt, where AM takes the value of 0 (automatic) or 1 (manual).
+While studying the linear model equation, a vehicle of manual transmission type starts off 14.878 MPG better than an automatic vehicle, at weight zero pounds. In real world it does not make sense since no car weights zero pounds. Analyzing the two slopes, an automatic vehicle is 3.786 MPG less efficient for every 1000lb increase in car weight, compared to 9.084 (3.786 + 5.298) for manual. By weight = 3000 lb, an automatic vehicle is already more MPG efficient, holding weight constant. One can conclude that a manual vehicle has a better MPG at lower weights (<2,750 lb), while the reverse is true for heavier (>2,750 lb) cars.
+
+Another interesting observation is the MPG data we have available for both transmission types. A quick glance at the plot shows that the data points for a manual transmission type are concentrated at the lower weights, roughly 1.0-3.5 [1000] pounds. Contrast that with the automatic type, where the weight range ranges from 2.5-5.5 [1000] pounds.
+
+2- ANALYZING THE Coefficients P-value
+Let’s now look at the p-values for all 4 coefficients. All the p-values are extremely small (<0.05). Hence, we reject the null hypothesis that states our coefficients are equal to zero, and we conclude that these coefficients are statistically significant and should be included in our linear model because they impact the dependent variable.
+
+
+Show graphical representation for this model
+
+```{r echo=TRUE}
+g3 <- ggplot(mtcars_ds, aes(wt, mpg))
+g3 <- g3 + geom_point(aes(color = Transmission_Type), alpha = 0.75, size = 4) + labs(title = "MPG Response to Vehicle weight & Transmission Type") + 
+  labs(x = "Vehicle Weight", y = "Efficiency (MPG)")
+g3 <- g3 + geom_abline(intercept = coef(model_3)[1] + coef(model_3)[2] * 0, slope = coef(model_3)[3] + coef(model_3)[4] * 0, size = 2, col = "brown")
+g3 <- g3 + geom_abline(intercept = coef(model_3)[1] + coef(model_3)[2] * 1, slope = coef(model_3)[3] + 
+coef(model_3)[4] *1, size =2, col = "yellow")
+g3
+```
+Now further analyze the confidence interval 
+
+```{r echo=TRUE}
+
+confint(model_3)
+```
+While analyzing the 95% confidence interval we are 95% confident that the 4 coefficients fall within the intervals as per model stated above. 
+
+4-ANALYZING THE R-SQUARED:
+The adjusted R-squared value is 0.8151, which means that 82% of the variation around the regression line can be explained by the model.
+
+5-ANALYZE RESIDUAL PLOTS & DIAGNOSTICS:
+For testing our assumptions for linear regression, use residual plots
+
+```{r echo=TRUE}
+par(mfrow = c(2 , 2))
+autoplot(model_3)
+```
+While analyzing the 4 diagnostic plots, top-left "Residual vs. Fitted" plot tells whether our linearity assumption is met and whether the variation of observation around the regression line is constant for all values of X. The red line in the plot is mainly flat and does not have as strong a curvature like in model 2. While considering homoscedasticity, the variation finds constant across range of X values. Finally, the "Normal Q-Q plot" shows the residuals fitting nicely along the diagonal line for the most part.
+
+Now analyze the two models using ANOVA/F-statistic. to compare different linear models analyzing the superior model and to decide which variable to stick to and which one to leave out. Now compare the Model-2 and Model-3.
+
+```{r echo=TRUE}
+anova(model_2, model_3)
+```
+
+While analyzing our ANOVA output, the third model has a RSS of 188.01 compared to 278.32 for the second model. The null hypothesis states that the RSS between the second and third model is not statistically significantly different, i.e. the models do not significantly differ. The alternate hypothesis states that there is a statistically significant difference between both RSS’s. The p-value obtained is small (0.001) and less than 0.05, so we reject the null hypothesis and conclude that model 3 (which takes interaction into account) is superior to model 2
+
+
+Model 4 for further analysis
+In addition to transmission type and weight, MPG has also an effect of displacement and a number of cylinders a vehicle has. 
+
+```{r echo=TRUE}
+model_4 <- lm(mpg ~ Transmission_Type + disp + wt + factor(cyl), mtcars_ds)
+summary(model_4)
+```
+
+Analyzing the linear model results, it is represented as: MPG = 33.816 + 0.141AM + 0.002disp - 3.249wt - 4.305*cyl(6) - 6.318*cyl(8). An automatic vehicle with 4 number of cylinders will have an intercept of 33.816; an automatic vehicle with 6 cylinders will have an intercept of 29.511 (33.816 - 4.305); a manual vehicle with 8 cylinders will have an intercept of 27.639 (33.816 + 0.141 - 6.318); and so on. In this model, transmission type and displacement have little to no impact on MPG based on their high p-values. Instead, weight and the number of cylinders play a much bigger role.
+
+Another interesting thing to note is the adjusted R-squared value of 0.8064, compared to 0.8151 for the much less complicated model 3. However, a high R-squared can be misleading, and one needs to study a linear model’s diagnostic/residual plots to determine how well the fitted line really predicts the data. Let’s look at the ‘Residuals vs Fitted’ plot.
+
+
+For residual diagnostic analysis:
+
+```{r echo=TRUE}
+par(mfrow = c(2, 2))
+autoplot(model_4)
+
+```
+The top-left ‘Residuals vs. Fitted’ plot shows a constant variance for the entire range of X. Lastly, let’s compare models 3 and 4.
+
+Now analyze the two models
+
+```{r echo=TRUE}
+anova(model_3, model_4)
+```
+The more complicated model 4 has a slightly smaller RSS (182.87 vs. 188.01 for model 3); however, the p-value of 0.6975 is much bigger than our set alpha of 0.05. Hence, we fail to reject the null hypothesis and conclude that model 4 is not superior to model 3.
